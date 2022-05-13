@@ -1,0 +1,6 @@
+This is Eid maghareez and Tayma hamdan submission to the first Os course assignment
+there are 3 files :
+
+Scheduler1Code.py : python code for the assignment and takes input from the command line
+Scheduler1.exe : executable for the python code mentioned previously also takes input from command line
+Schedulerinputfromuser.exe : another executable however it takes input directly from user and not by taking it from the command line
