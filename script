@@ -1,0 +1,138 @@
+from playwright.sync_api import sync_playwright
+import time
+import random
+import re
+from urllib.parse import unquote
+import csv
+import os
+
+urls = [
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Al+Khaldi+Hospital+Ibn+Khaldoun+St+4th+Circle+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Al+Quds+College+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Gas+Station+Al-Hurriyah+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+International+Hotel+Al-Habab+Ben+Al-Mundher+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Gas+Station+Days+Inn+Hotel+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Istiklal+Mall+Istiqlal+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Wadi+al+Rimam+Al-Yarmouk+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Abu+Khader+Center+Al+Webdeh+Al-Shariaah+College+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Gas+Station+Dead+Sea+Rd+Amman+11180",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Go+Station+Desert+Hwy+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Gas+Station+Abdallah+Ghosheh+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Nayrouz+St+Family+Basket+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Carrefour+Naltshek+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Zait+&+Zatar+Sedqi+Abu+Shaqra+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Madaba+Down+Town+Madaba+Eastern+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Grace+Mall+al+Hakem+al+Nisabouri+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Manaseer+Gas+Station+As-Senaah+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Sweifieh+Village+Naqib+Omran+Al-Maayetah+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Zarqa+Al-Saadeh+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Sport+City+Al-Shahid+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Ramtha+Al-Wihda+Al-Arabiyya",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+New+Irbid+Complex+Aydoun+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Madaba+Al+Yarmouk",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Gulf+Khalda+Wasfi+At-Tall+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+American+University+of+Madaba+Madaba+Al+Karak+Main+Road",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Jabal+Amman+Ibn+Khaldoun+St+46+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Irbid+Yarmouk+University+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Huson+K+Talal+St+Irbid",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Yasmin+Jabal+Arafat+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Aqaba+As-Saadeh+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Aqaba+Electricity+Office+al+hussein+bin+ali+street+next+to+mazaya+hotel",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Inside+Hyatt+Regency+Aqaba+Ayla+Resort+Rihan+St",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Mafraq+Jarash+Street",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Abu+Alanda+Munir+Al+Asmar+St+Aswaq+Al+Nahar",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Salt+Salt+Gate+Dababneh+Complex+Salt+Hwy",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Dabouq+New+Branch+Al-Ikram+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Zarqa+Free+Zone+300m+after+the+main+gate",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Carrefour+Al-Madina+Al-Monawara+St+280+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Thuhair+Airport+Street+Manaseer+Gas+Station+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Israa+Airport+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Abdoun+Salman+Al-Qudat+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Saraya+Mall+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Tabrbour+Tabrbour+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Dahiyet+Al+Rasheed+Akeef+Al+Fayez+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Sweileh+Princess+Raya+Bint+Al+Hussein+Street+Majdalani+Complex+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Marka+King+Abdullah+First+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Cozmo+7th+Circle+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Mecca+Mall+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Hashmi+Shamali+Bat+ha+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Gulf+Station+Marka+Opposite+Drivers+Motor+Vehicles+Licensing+Department",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+City+Mall+King+Abdullah+Al+Thani+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Total+Gas+Station+Fuhais+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Galleria+Mall+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Jubieha+Yajouz+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+New+Zarqa+Mecca+Al+Mokaramah+Street",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Al+Mogablain+al+sakhra+al+mosharafa+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Fuhais+Hummar+Prs+Tasnim+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Gulf+Station+Qastal+Airport+Road+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Hashmi+shamali+ATM+Complex+No113+Al+Bathaa+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Abu+Nseir+ATM+Karamah+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Al-Arab+St+Shafa+Badran+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Um+Uthaina+Golden+Gate+Shat+Al+Arab+St+20+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Carrefour+Mukhtar+Mall+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+King+Hussein+Business+Park+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Ibn+al+Haitham+Hospital+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Gulf+Station+Medical+City+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Gulf+Station+Queen+Rania+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Sahab+Branch+Abdullah+II+Ibn+Al-Hussein+Industrial+City+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Safeway+Shafa+Badran+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Khalda+Nimer+Al+Hmoud+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Sweifieh+Ali+Nassouh+At-Taher+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Marj+Al+Hamam+Branch+Nahar+Complex+Dalah+Circle+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Bayader+Jamal+Qaitoka+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Mecca+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Dabouq+Jumaa+Al+Shalabi+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Gardenz+Barakeh+Commercial+Complex+Wasfi+Al+Tal+St+93+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Taj+Mall+Pr+Hashim+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Northern+Abdoun+Ali+Sedo+Kurdi+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Safeway+Shmeisani+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Carrefour+Shmeisani+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Wehdat+Abed+Ben+Bisher+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Jo-Park+Prs+Taghreed+Mohammad+St+67+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Al+Rainbow+St+53+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Jabal+al+Hussein+Bir+As-Sabee+St+9+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Down+Town+16+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Arar+Street+next+to+Cozmo+Wadi+Saqra+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Rabieh+Siclila+Street+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Shafa+Badran+Al-Arab+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Souq+Al+Khudar+Mamdouh+Shaher+Al+Hadid+St+Amman",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Amman+Gate+near+the+antiquities+Jerash",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Jabal+al+Shamali+Al-Rusaifa+Yajouz+Street+Zarqa",
+    "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Ajloun+Ajloun+St"
+]
+
+def extract_coords(url):
+    match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', url)
+    if match:
+        return match.groups()
+    match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', url)
+    if match:
+        return match.groups()
+    return "NOT_FOUND", "NOT_FOUND"
+
+print("🚀 Starting extraction of 92 locations...")
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    results = []
+
+    for i, url in enumerate(urls, 1):
+        place = unquote(url.split("query=")[-1].replace("+", " "))
+        print(f"[{i}/92] {place[:70]}...")
+        page.goto(url, wait_until="networkidle")
+        time.sleep(random.uniform(12, 18))
+        lat, lng = extract_coords(page.url)
+        results.append({"Original Query": place, "Latitude": lat, "Longitude": lng})
+        print(f"   → {lat}, {lng}")
+
+    browser.close()
+
+csv_path = "bank_al_etihad_coordinates.csv"
+with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["Original Query", "Latitude", "Longitude"])
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"\n✅ DONE! File saved as {csv_path}")
+print("You can now download it with: cat bank_al_etihad_coordinates.csv")
