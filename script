@@ -1,11 +1,25 @@
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import time
-import random
 import re
 from urllib.parse import unquote
 import csv
-import os
 
+# ==================== CHROME SETUP FOR DOCKER ====================
+options = Options()
+options.add_argument("--headless")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-gpu")
+options.add_argument("--window-size=1920,1080")
+options.add_argument("--disable-blink-features=AutomationControlled")
+
+service = Service(ChromeDriverManager().install())
+driver = webdriver.Chrome(service=service, options=options)
+
+# ==================== ALL 92 LINKS ====================
 urls = [
     "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Al+Khaldi+Hospital+Ibn+Khaldoun+St+4th+Circle+Amman",
     "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+ATM+Al+Quds+College+Amman",
@@ -101,38 +115,42 @@ urls = [
     "https://www.google.com/maps/search/?api=1&query=Bank+al+Etihad+Ajloun+Ajloun+St"
 ]
 
-def extract_coords(url):
-    match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', url)
+# ==================== MAIN LOOP ====================
+results = []
+for i, url in enumerate(urls, 1):
+    place_name = unquote(url.split("query=")[-1].replace("+", " "))
+    print(f"[{i}/92] Processing: {place_name[:80]}...")
+    
+    driver.get(url)
+    time.sleep(30)                    # 30 seconds wait for Google Maps JS to update the URL
+    
+    current_url = driver.current_url
+    
+    # Extract coordinates
+    match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', current_url)
+    if not match:
+        match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', current_url)
+    
     if match:
-        return match.groups()
-    match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', url)
-    if match:
-        return match.groups()
-    return "NOT_FOUND", "NOT_FOUND"
+        lat, lng = match.groups()
+    else:
+        lat = lng = "NOT_FOUND"
+    
+    results.append({
+        "original_query": place_name,
+        "latitude": lat,
+        "longitude": lng,
+        "full_url": current_url
+    })
+    
+    print(f"   → {lat}, {lng}")
 
-print("🚀 Starting extraction of 92 locations...")
+driver.quit()
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
-    results = []
-
-    for i, url in enumerate(urls, 1):
-        place = unquote(url.split("query=")[-1].replace("+", " "))
-        print(f"[{i}/92] {place[:70]}...")
-        page.goto(url, wait_until="networkidle")
-        time.sleep(random.uniform(12, 18))
-        lat, lng = extract_coords(page.url)
-        results.append({"Original Query": place, "Latitude": lat, "Longitude": lng})
-        print(f"   → {lat}, {lng}")
-
-    browser.close()
-
-csv_path = "bank_al_etihad_coordinates.csv"
-with open(csv_path, "w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=["Original Query", "Latitude", "Longitude"])
+# ==================== SAVE TO CSV ====================
+with open("bank_al_etihad_coordinates.csv", "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["original_query", "latitude", "longitude", "full_url"])
     writer.writeheader()
     writer.writerows(results)
 
-print(f"\n✅ DONE! File saved as {csv_path}")
-print("You can now download it with: cat bank_al_etihad_coordinates.csv")
+print("\n✅ DONE! All coordinates saved to bank_al_etihad_coordinates.csv")
